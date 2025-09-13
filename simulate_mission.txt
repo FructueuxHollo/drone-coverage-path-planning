@@ -9,10 +9,10 @@ pyenv;
 
 %% Étape 1: Définition des paramètres de la mission (comme en Python)
 disp('Définition des paramètres de la mission...');
-FLIGHT_ALTITUDE_M = 40;     % Altitude de vol en mètres(40)
-CAMERA_FOV_DEGREES = 60;    % Angle de vue de la caméra en degrés(60)
-OVERLAP_PERCENTAGE = 0;   % Pourcentage de chevauchement entre les passes (0-99)
-START_POINT = [100, 100]; % Coordonnées (East, North)
+FLIGHT_ALTITUDE_M = 40;     % Altitude de vol en mètres
+CAMERA_FOV_DEGREES = 60;    % Angle de vue de la caméra en degrés
+OVERLAP_PERCENTAGE = 20;   % Pourcentage de chevauchement entre les passes (0-99)
+START_POINT = [75, 75]; % Coordonnées (East, North)
 
 % Définir la zone de surveillance. Utiliser des "cell arrays" pour les polygones.
 %zone_a_surveiller = {[50 50; 450 50; 450 350; 50 350]};

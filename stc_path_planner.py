@@ -11,35 +11,112 @@ class DronePathPlanner:
     Prend en entrée les sommets d'un polygone définissant la zone
     et génère une série de waypoints pour une couverture complète.
     """
-    def __init__(self, polygon_vertices, altitude_m, camera_fov_degrees, obstacle_polygons=None):
+    def __init__(self, polygon_vertices, altitude_m, camera_fov_degrees, obstacle_polygons=None, start_point_coords=None, overlap_percentage=0):
         """
         Initialise le planificateur.
         - polygon_vertices: Liste de tuples (x, y) des sommets du polygone principal.
         - altitude_m: Altitude de vol du drone en mètres.
         - camera_fov_degrees: Angle de vue (FOV) horizontal de la caméra en degrés.
         - obstacle_polygons: Liste optionnelle de polygones d'obstacles.
+        - start_coords: Tuple optionnel (x, y) pour le point de départ en coordonnées réelles.
         """
         if not polygon_vertices:
             raise ValueError("La liste des sommets du polygone ne peut pas être vide.")
+        overlap_percentage = max(0, min(overlap_percentage, 99.0))
             
         self.polygon_vertices = np.array(polygon_vertices, dtype=np.int32)
         self.obstacle_polygons = obstacle_polygons if obstacle_polygons is not None else []
-        # Calcul de la résolution de la grille à partir des paramètres du drone
         self.altitude = altitude_m
         self.fov_degrees = camera_fov_degrees
-        # La formule trigonométrique pour calculer la largeur de la vue au sol
-        # On convertit le FOV en radians pour la fonction tan() de Python
-        fov_radians = math.radians(self.fov_degrees)
-        self.resolution = 2 * self.altitude * math.tan(fov_radians / 2)
-        self.grid = []
-        self.start_point = None
-        self.origin_offset = (0, 0) # Pour mapper les coordonnées du polygone à la grille
+        # fov_radians = math.radians(self.fov_degrees)
+        # self.resolution = 2 * self.altitude * math.tan(fov_radians / 2)
+        # self.grid = []
+        # self.start_point = None
+        # self.origin_offset = (0, 0)
         self.hamiltonian_path = []
+        self.start_point = None
 
-        print("Initialisation du planificateur...")
+        fov_radians = math.radians(self.fov_degrees)
+        full_footprint_width = 2 * self.altitude * math.tan(fov_radians / 2)
+        self.resolution = full_footprint_width * (1.0 - (overlap_percentage / 100.0))
+        
+        min_east, min_north = np.min(self.polygon_vertices, axis=0)
+        self.origin_offset = (min_east, min_north)
+
         print(f"Altitude: {self.altitude}m, FOV: {self.fov_degrees}°")
-        print(f"-> Résolution de grille calculée : {self.resolution:.2f} mètres par cellule.")
+        print(f"-> Largeur de vue de la caméra (footprint) : {full_footprint_width:.2f} m")
+        print(f"-> Overlap demandé : {overlap_percentage}%")
+        print(f"-> Résolution de grille effective (pas latéral) : {self.resolution:.2f} m")
         self._create_grid_from_polygon()
+
+        if start_point_coords is not None:
+            # Cas: Point de départ personnalisé fourni
+            print(f"Validation du point de départ personnalisé à {start_point_coords}...")
+
+            start_c = int(round((start_point_coords[0] - self.origin_offset[0]) / self.resolution))
+            start_r = int(round((start_point_coords[1] - self.origin_offset[1]) / self.resolution))
+            
+            rows, cols = self.grid.shape
+            
+            if self.grid[start_r, start_c] == 1:
+                # Si la cellule est un obstacle, on cherche une alternative
+                print(f"Avertissement : Le point de départ demandé {start_point_coords} correspond à une cellule d'obstacle.")
+                print("Recherche du point de départ valide le plus proche...")
+                
+                alternative_start_point = self._find_closest_available_cell(start_r, start_c)
+                
+                if alternative_start_point is None:
+                    # Si même la recherche échoue, on lève une erreur
+                    raise Exception("Aucune cellule de départ alternative valide n'a pu être trouvée près du point demandé.")
+                
+                self.start_point = alternative_start_point
+                # On reconvertit les coordonnées de la grille en coordonnées du monde pour informer l'utilisateur
+                alt_east = self.start_point[1] * self.resolution + self.origin_offset[0]
+                alt_north = self.start_point[0] * self.resolution + self.origin_offset[1]
+                print(f"-> Point de départ alternatif trouvé à la cellule {self.start_point}, approx. ({alt_east:.1f}, {alt_north:.1f})m.")
+            else:
+                # La cellule est valide, on l'utilise
+                self.start_point = (start_r, start_c)
+                print(f"Point de départ personnalisé validé et défini à la cellule de grille : {self.start_point}")
+            # --- FIN DE LA MODIFICATION DE LOGIQUE ---
+        else:
+            # Cas: Aucun point de départ fourni, on en cherche un automatiquement
+            print("Recherche d'un point de départ automatique...")
+            start_coords = np.argwhere(self.grid == 0)
+            if len(start_coords) > 0:
+                self.start_point = tuple(start_coords[0])
+                print(f"Point de départ automatique trouvé à la cellule : {self.start_point}")
+            else:
+                raise Exception("Aucune zone libre n'a été trouvée dans le polygone.")
+
+    def _find_closest_available_cell(self, r_center, c_center):
+        """
+        Cherche en spirale vers l'extérieur à partir d'un point central
+        pour trouver la première cellule libre (valeur 0).
+        """
+        rows, cols = self.grid.shape
+        max_radius = max(rows, cols) # Une limite de recherche sécuritaire
+
+        # On commence par vérifier le point central lui-même (radius=0)
+        if self.grid[r_center, c_center] == 0:
+             return (r_center, c_center)
+
+        # On explore des carrés de plus en plus grands
+        for radius in range(1, max_radius):
+            # On vérifie le périmètre du carré de rayon 'radius'
+            for i in range(-radius, radius + 1):
+                # Points sur les bords haut et bas
+                for r_offset in [-radius, radius]:
+                    r, c = r_center + r_offset, c_center + i
+                    if 0 <= r < rows and 0 <= c < cols and self.grid[r, c] == 0:
+                        return (r, c)
+                # Points sur les bords gauche et droit
+                for c_offset in [-radius, radius]:
+                    r, c = r_center + i, c_center + c_offset
+                    if 0 <= r < rows and 0 <= c < cols and self.grid[r, c] == 0:
+                        return (r, c)
+        
+        return None
 
     def _create_grid_from_polygon(self):
         """
@@ -47,20 +124,14 @@ class DronePathPlanner:
         Les cellules à l'intérieur du polygone sont marquées comme 0 (libres),
         celles à l'extérieur sont marquées comme 1 (obstacles).
         """
-        # 1. Déterminer la boîte englobante (bounding box) du polygone
-        min_x, min_y = np.min(self.polygon_vertices, axis=0)
-        max_x, max_y = np.max(self.polygon_vertices, axis=0)
+        max_east, max_north = np.max(self.polygon_vertices, axis=0)
         
-        self.origin_offset = (min_x, min_y)
-
-        # 2. Calculer les dimensions de la grille en fonction de la résolution
-        cols = int(np.ceil((max_x - min_x) / self.resolution))
-        rows = int(np.ceil((max_y - min_y) / self.resolution))
+        cols = int(np.ceil((max_east - self.origin_offset[0]) / self.resolution))
+        rows = int(np.ceil((max_north - self.origin_offset[1]) / self.resolution))
         
         print(f"Grille générée : {rows} lignes, {cols} colonnes.")
-        self.grid = np.ones((rows, cols), dtype=int) # Tout est un obstacle au départ
+        self.grid = np.ones((rows, cols), dtype=int)
 
-        # 3. Ajuster les coordonnées du polygone pour qu'elles correspondent à la grille
         poly_grid_coords = ((self.polygon_vertices - self.origin_offset) / self.resolution).astype(np.int32)
 
         obs_grid_coords_list = []
@@ -69,32 +140,20 @@ class DronePathPlanner:
             obs_coords = ((np_obs_poly - self.origin_offset) / self.resolution).astype(np.int32)
             obs_grid_coords_list.append(obs_coords)
 
-        # 4. Remplir la grille 
         for r in range(rows):
             for c in range(cols):
-                # On teste le centre de la cellule
-                point_x = c + 0.5
-                point_y = r + 0.5
-                # Test 1: Le point doit être dans la zone de surveillance principale
-                if cv2.pointPolygonTest(poly_grid_coords, (point_x, point_y), False) >= 0:
-                    # Test 2: Le point ne doit PAS être dans une zone d'obstacle
+                point_x_grid = c + 0.5
+                point_y_grid = r + 0.5
+                
+                if cv2.pointPolygonTest(poly_grid_coords, (point_x_grid, point_y_grid), False) >= 0:
                     is_in_obstacle = False
                     for obs_poly in obs_grid_coords_list:
-                        if cv2.pointPolygonTest(obs_poly, (point_x, point_y), False) >= 0:
+                        if cv2.pointPolygonTest(obs_poly, (point_x_grid, point_y_grid), False) >= 0:
                             is_in_obstacle = True
-                            break # Inutile de vérifier les autres obstacles
+                            break
                     
                     if not is_in_obstacle:
-                        self.grid[r, c] = 0 # C'est un espace libre !
-
-        # 5. Définir un point de départ 
-        start_coords = np.argwhere(self.grid == 0)
-        if len(start_coords) > 0:
-            self.start_point = tuple(start_coords[0])
-            print(f"Point de départ trouvé : {self.start_point}")
-        else:
-            raise Exception("Aucune zone libre trouvée à l'intérieur du polygone. Vérifiez les coordonnées ou la résolution.")
-
+                        self.grid[r, c] = 0
     def plan_coverage_path(self):
         """
         Fonction principale pour planifier le chemin de couverture.
@@ -347,10 +406,11 @@ class DronePathPlanner:
         return hamiltonian_path
 
 
-def planifier_mission(zone_poly, altitude, fov, obstacles_poly):
+def planifier_mission(zone_poly, altitude, fov, obstacles_poly, start_coords=None, overlap=0):
     """
     Fonction principale d'interface pour MATLAB.
     Prend en entrée des listes Python et retourne les waypoints.
+    - start_coords: Tuple optionnel (x, y) pour le point de départ.
     """
     print("--- Appel Python depuis MATLAB ---")
     
@@ -359,7 +419,9 @@ def planifier_mission(zone_poly, altitude, fov, obstacles_poly):
         polygon_vertices=zone_poly,
         altitude_m=altitude,
         camera_fov_degrees=fov,
-        obstacle_polygons=obstacles_poly
+        obstacle_polygons=obstacles_poly,
+        start_point_coords=start_coords,
+        overlap_percentage=overlap
     )
     
     # 2. Planifier la trajectoire
@@ -390,9 +452,9 @@ if __name__ == "__main__":
         [(150, 150), (250, 150), (250, 250), (150, 250)],
         [(300, 80), (400, 80), (350, 150)]
     ]
-    
-    # Appel de la fonction principale
-    final_waypoints = planifier_mission(zone, FLIGHT_ALTITUDE_M, CAMERA_FOV_DEGREES, obstacles)
+    # Exemple d'utilisation avec point de départ utilisateur :
+    start_coords = (60, 60)  # <-- Modifier ici pour tester un point de départ spécifique
+    final_waypoints = planifier_mission(zone, FLIGHT_ALTITUDE_M, CAMERA_FOV_DEGREES, obstacles, start_coords=start_coords)
     
     if final_waypoints:
         print("\n--- Exécution en mode standalone terminée ---")
