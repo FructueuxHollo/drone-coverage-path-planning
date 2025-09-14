@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import os
 import time
-import math 
+import math
 
 class DronePathPlanner:
     """
@@ -28,17 +28,16 @@ class DronePathPlanner:
         self.obstacle_polygons = obstacle_polygons if obstacle_polygons is not None else []
         self.altitude = altitude_m
         self.fov_degrees = camera_fov_degrees
-        # fov_radians = math.radians(self.fov_degrees)
-        # self.resolution = 2 * self.altitude * math.tan(fov_radians / 2)
-        # self.grid = []
-        # self.start_point = None
-        # self.origin_offset = (0, 0)
         self.hamiltonian_path = []
         self.start_point = None
+        self.path_from = {}
+        self.final_waypoints = []
+
 
         fov_radians = math.radians(self.fov_degrees)
         full_footprint_width = 2 * self.altitude * math.tan(fov_radians / 2)
         self.resolution = full_footprint_width * (1.0 - (overlap_percentage / 100.0))
+        # self.resolution = 50
         
         min_east, min_north = np.min(self.polygon_vertices, axis=0)
         self.origin_offset = (min_east, min_north)
@@ -144,11 +143,13 @@ class DronePathPlanner:
             for c in range(cols):
                 point_x_grid = c + 0.5
                 point_y_grid = r + 0.5
+
+                test_point = (float(point_x_grid), float(point_y_grid))
                 
-                if cv2.pointPolygonTest(poly_grid_coords, (point_x_grid, point_y_grid), False) >= 0:
+                if cv2.pointPolygonTest(poly_grid_coords, test_point, False) >= 0:
                     is_in_obstacle = False
                     for obs_poly in obs_grid_coords_list:
-                        if cv2.pointPolygonTest(obs_poly, (point_x_grid, point_y_grid), False) >= 0:
+                        if cv2.pointPolygonTest(obs_poly, test_point, False) >= 0:
                             is_in_obstacle = True
                             break
                     
@@ -172,7 +173,7 @@ class DronePathPlanner:
         
         # Calcul de l'arbre recouvrant minimum (MST) avec l'algorithme de Prim
         mst = set()
-        path_from = {self.start_point: None}
+        self.path_from = {self.start_point: None}
         edges = [(0, self.start_point, None)]  # (poids, (r, c), from_cell)
 
         num_free_cells = np.sum(self.grid == 0)
@@ -183,7 +184,7 @@ class DronePathPlanner:
                 continue
             mst.add((r, c))
             if from_cell is not None:
-                path_from[(r, c)] = from_cell
+                self.path_from[(r, c)] = from_cell
             
             for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 rr, cc = r + dr, c + dc
@@ -194,18 +195,18 @@ class DronePathPlanner:
 
         # Génération du chemin Hamiltonien à partir du MST
         sub_grid = self._subdivide_grid()
-        self.hamiltonian_path = self._generate_hamiltonian_path(sub_grid, path_from)
+        self.hamiltonian_path = self._generate_hamiltonian_path(sub_grid, self.path_from)
         
         print(f"Chemin Hamiltonien généré avec {len(self.hamiltonian_path)} waypoints.")
         
         # Conversion des coordonnées de la grille en coordonnées "réelles"
-        real_world_waypoints = [
-            (((c+1)/2.0) * self.resolution + self.origin_offset[0], ((r+1)/2.0) * self.resolution + self.origin_offset[1])
+        self.final_waypoints = [
+            (((c+0.5)/2.0) * self.resolution + self.origin_offset[0], ((r+0.5)/2.0) * self.resolution + self.origin_offset[1])
             for r, c in self.hamiltonian_path
         ]
 
-        return real_world_waypoints
-        
+        return self.final_waypoints
+       
     def save_path_to_file(self, waypoints, filename="output/waypoints.txt"):
         """Sauvegarde les waypoints dans un fichier."""
         os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -214,113 +215,6 @@ class DronePathPlanner:
             for x, y in waypoints:
                 f.write(f"{x},{y}\n")
         print(f"Waypoints sauvegardés dans {filename}")
-
-    # --- Méthodes de visualisation (optionnelles) ---
-
-    def visualize_grid_and_mst(self, cell_size=20):
-        """Visualise la grille, les obstacles et le MST."""
-        rows, cols = self.grid.shape
-        img = np.full((rows * cell_size, cols * cell_size, 3), (200, 200, 200), dtype=np.uint8)
-
-        for r in range(rows):
-            for c in range(cols):
-                if self.grid[r, c] == 0: # Libre
-                    cv2.rectangle(img, (c * cell_size, r * cell_size), ((c + 1) * cell_size, (r + 1) * cell_size), (255, 255, 255), -1)
-                cv2.rectangle(img, (c * cell_size, r * cell_size), ((c + 1) * cell_size, (r + 1) * cell_size), (0, 0, 0), 1)
-
-        # Dessiner le polygone principale en bleu
-        poly_img_coords = ((self.polygon_vertices - self.origin_offset) / self.resolution * cell_size).astype(np.int32)
-        cv2.polylines(img, [poly_img_coords], isClosed=True, color=(255, 0, 0), thickness=2)
-
-        # Dessiner les polygones d'obstacles (en rouge)
-        for obs_poly in self.obstacle_polygons:
-            np_obs_poly = np.array(obs_poly, dtype=np.int32)
-            obs_img_coords = ((np_obs_poly - self.origin_offset) / self.resolution * cell_size).astype(np.int32)
-            cv2.fillPoly(img, [obs_img_coords], color=(100, 100, 255))
-
-        # Dessiner le MST (nécessite de relancer une partie de la planification)
-        # Pour une version propre, path_from devrait être un attribut de la classe
-        # Ici, on le recalcule pour la démo.
-        # ... (logique de calcul du MST à insérer ici si besoin de le visualiser)
-
-        filename = "output/grid_and_polygon.png"
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        cv2.imwrite(filename, img)
-        print(f"Visualisation de la grille sauvegardée dans {filename}")
-        
-    def animate_flight_path(self, cell_size=10, speed_ms=50, video_filename=None, video_fps=30):
-        """
-        Crée une animation du drone (un point) parcourant le chemin Hamiltonien
-        et coloriant les cellules visitées.
-        """
-        if not self.hamiltonian_path:
-            print("Aucun chemin à animer. Lancez d'abord plan_coverage_path().")
-            return
-            
-        rows, cols = self.grid.shape
-        sub_rows, sub_cols = rows * 2, cols * 2
-        height, width = sub_rows * cell_size, sub_cols * cell_size
-
-        # Configuration de l'enregistreur vidéo
-        video_writer = None
-        if video_filename:
-            os.makedirs(os.path.dirname(video_filename), exist_ok=True)
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            video_writer = cv2.VideoWriter(video_filename, fourcc, video_fps, (width, height))
-            if not video_writer.isOpened():
-                print(f"Erreur: Impossible d'initialiser l'enregistreur vidéo pour {video_filename}")
-                video_writer = None # On annule l'enregistrement
-            else:
-                print(f"Enregistrement de l'animation dans : {video_filename}")
-        
-        # Création de l'image de base
-        base_img = np.full((sub_rows * cell_size, sub_cols * cell_size, 3), (200, 200, 200), dtype=np.uint8)
-        # Dessin de la grille subdivisée
-        for r in range(sub_rows):
-            for c in range(sub_cols):
-                 # Colorier les cellules hors polygone
-                if self.grid[r//2, c//2] == 1:
-                    cv2.rectangle(base_img, (c * cell_size, r * cell_size), ((c + 1) * cell_size, (r + 1) * cell_size), (50, 50, 50), -1)
-                else:
-                    cv2.rectangle(base_img, (c * cell_size, r * cell_size), ((c + 1) * cell_size, (r + 1) * cell_size), (255, 255, 255), -1)
-                cv2.rectangle(base_img, (c * cell_size, r * cell_size), ((c + 1) * cell_size, (r + 1) * cell_size), (180, 180, 180), 1)
-        
-        visited_sub_cells = set()
-
-        print("Lancement de l'animation... Appuyez sur 'q' pour quitter.")
-        for i, (r, c) in enumerate(self.hamiltonian_path):
-            frame = base_img.copy()
-            
-            # Colorier les cellules déjà visitées
-            visited_sub_cells.add((r, c))
-            for vr, vc in visited_sub_cells:
-                cv2.rectangle(frame, (vc * cell_size, vr * cell_size), ((vc + 1) * cell_size, (vr + 1) * cell_size), (200, 255, 200), -1)
-            
-            # Dessiner le chemin parcouru
-            if i > 0:
-                path_so_far = np.array(self.hamiltonian_path[:i+1])
-                path_pixels = (path_so_far[:, ::-1] * cell_size) + cell_size // 2
-                cv2.polylines(frame, [path_pixels], isClosed=False, color=(0, 150, 0), thickness=2)
-
-            # Dessiner le drone
-            drone_pos = (c * cell_size + cell_size // 2, r * cell_size + cell_size // 2)
-            cv2.circle(frame, drone_pos, cell_size // 2, (0, 0, 255), -1) # Point rouge pour le drone
-
-            cv2.imshow("Animation du parcours du drone", frame)
-
-            if video_writer:
-                video_writer.write(frame)
-            
-            # Quitter si 'q' est pressé
-            if cv2.waitKey(speed_ms) & 0xFF == ord('q'):
-                break
-
-        if video_writer:
-            video_writer.release()
-            print("Vidéo enregistrée avec succès.")
-        
-        cv2.destroyAllWindows()
-        print("Animation terminée.")
 
     # --- Méthodes utilitaires reprises du code original ---
 
@@ -439,24 +333,52 @@ def planifier_mission(zone_poly, altitude, fov, obstacles_poly, start_coords=Non
         print("-> Échec de la planification.")
         return []
 
-if __name__ == "__main__":
     
-    # Définition de la mission comme avant
-    FLIGHT_ALTITUDE_M = 40
-    CAMERA_FOV_DEGREES = 60
+    print("--- Lancement du planificateur en mode standalone (visualisation) ---")
     
+    # Définition de la mission pour le test
+    FLIGHT_ALTITUDE_M = 10
+    CAMERA_FOV_DEGREES = 90
+    OVERLAP_PERCENTAGE = 20
+    
+    # Un polygone de test complexe
+    # zone = [
+    #     (0, 0), (200, 0), (200, 150), (100, 150), (100, 80), (120, 80), (120, 100), (80, 100), (80, 150), (0, 150)
+    # ]
     zone = [
-        (50, 50), (450, 50), (450, 350), (50, 350)
-    ]
-    obstacles = [
-        [(150, 150), (250, 150), (250, 250), (150, 250)],
-        [(300, 80), (400, 80), (350, 150)]
-    ]
-    # Exemple d'utilisation avec point de départ utilisateur :
-    start_coords = (60, 60)  # <-- Modifier ici pour tester un point de départ spécifique
-    final_waypoints = planifier_mission(zone, FLIGHT_ALTITUDE_M, CAMERA_FOV_DEGREES, obstacles, start_coords=start_coords)
+    (0, 0),  
+    (450, 0),  
+    (450, 350), 
+    (300, 350), 
+    (300, 150), 
+    (200, 150), 
+    (200, 350), 
+    (0, 350)   
+]
+    # obstacles = [
+    #     [(30, 40), (80, 40), (80, 60), (30, 60)],
+    #     [(130, 50), (140, 90), (120, 90)]
+    # ]
+    obstacles = [(100, 100), (150, 100), (150, 150), (100, 150)]
+    # obstacles = []
+
+
     
-    if final_waypoints:
-        print("\n--- Exécution en mode standalone terminée ---")
-        # Ici, vous pourriez sauvegarder le fichier ou lancer l'animation si besoin
-        # planner.save_path_to_file(final_waypoints) # Ne peut pas être appelé directement
+    # 1. Créer une instance du planificateur
+    planner = DronePathPlanner(
+        polygon_vertices=zone,
+        altitude_m=FLIGHT_ALTITUDE_M,
+        camera_fov_degrees=CAMERA_FOV_DEGREES,
+        obstacle_polygons=obstacles,
+        overlap_percentage=OVERLAP_PERCENTAGE
+    )
+    
+    # 2. Planifier la trajectoire (ce qui va calculer et stocker l'arbre)
+    waypoints_data = planner.plan_coverage_path()
+    
+    # 3. Si la planification a réussi, générer la visualisation
+    if waypoints_data:
+        print("\nPlanification réussie.")
+        planner.visualize_mst_step()
+    else:
+        print("\nÉchec de la planification.")

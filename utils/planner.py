@@ -350,7 +350,7 @@ class STCPlanner:
         self._create_grid()
         if visualizer:
             visualizer.draw_grid(self.cell_polygons.values())
-            # input("Appuyez sur Entrée pour passer à l'étape 3...")
+            input("Appuyez sur Entrée pour passer à l'étape 3...")
 
         # Étape 3
         self._build_graph()
@@ -362,7 +362,7 @@ class STCPlanner:
             print(node, "->", dict(nbrs)) 
         if visualizer:
             visualizer.draw_graph(self.graph, self.cell_map)
-            # input("Appuyez sur Entrée pour passer à l'étape 4...")
+            input("Appuyez sur Entrée pour passer à l'étape 4...")
             
         # Trouver la cellule de départ
         start_cell_idx = self._find_start_cell(start_point)
@@ -387,7 +387,7 @@ class STCPlanner:
         print_tree(start_cell_idx)
         if visualizer:
             visualizer.draw_spanning_tree(self.spanning_tree, self.cell_map)
-            # input("Appuyez sur Entrée pour passser à l'étape 5...")
+            input("Appuyez sur Entrée pour passser à l'étape 5...")
 
         # Étape 5
         # self._generate_coverage_path(start_cell_idx)

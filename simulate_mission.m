@@ -10,7 +10,7 @@ pyenv;
 %% Étape 1: Définition des paramètres de la mission (comme en Python)
 disp('Définition des paramètres de la mission...');
 FLIGHT_ALTITUDE_M = 40;     % Altitude de vol en mètres(40)
-CAMERA_FOV_DEGREES = 60;    % Angle de vue de la caméra en degrés(60)
+CAMERA_FOV_DEGREES = 30;    % Angle de vue de la caméra en degrés(60)
 OVERLAP_PERCENTAGE = 0;   % Pourcentage de chevauchement entre les passes (0-99)
 START_POINT = [100, 100]; % Coordonnées (East, North)
 
