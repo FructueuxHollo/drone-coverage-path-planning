@@ -45,7 +45,7 @@ if count(py.sys.path,'.') == 0
 end
 
 % Importer le module Python
-planner_module = py.importlib.import_module('stc_path_planner');
+planner_module = py.importlib.import_module('boustrophedon_planner');
 
 % Forcer le rechargement du module
 py.importlib.reload(planner_module);
@@ -81,6 +81,9 @@ end
 % 2. On prend la 1ère colonne de Python (East) comme 2ème coordonnée.
 % 3. On utilise l'altitude NÉGATIVE pour la 3ème coordonnée (Down).
 waypoints_3d = [waypoints_mat(:,2), waypoints_mat(:,1), -ones(waypoints_count, 1) * FLIGHT_ALTITUDE_M];
+
+% On ajoute le premier waypoint à la fin de la trajectoire pour créer une boucle
+waypoints_3d(end+1, :) = waypoints_3d(1, :);
 
 fprintf('Trajectoire reçue avec %d waypoints.\n', waypoints_count);
 
