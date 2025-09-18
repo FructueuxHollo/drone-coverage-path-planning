@@ -12,7 +12,7 @@ disp('Définition des paramètres de la mission...');
 FLIGHT_ALTITUDE_M = 40;     % Altitude de vol en mètres(40)
 CAMERA_FOV_DEGREES = 30;    % Angle de vue de la caméra en degrés(60)
 OVERLAP_PERCENTAGE = 0;   % Pourcentage de chevauchement entre les passes (0-99)
-START_POINT = [100, 100]; % Coordonnées (East, North)
+START_POINT = [250, 100]; % Coordonnées (East, North)
 
 % Définir la zone de surveillance. Utiliser des "cell arrays" pour les polygones.
 %zone_a_surveiller = {[50 50; 450 50; 450 350; 50 350]};
@@ -45,7 +45,7 @@ if count(py.sys.path,'.') == 0
 end
 
 % Importer le module Python
-planner_module = py.importlib.import_module('boustrophedon_planner');
+planner_module = py.importlib.import_module('levy_flight_planner');
 
 % Forcer le rechargement du module
 py.importlib.reload(planner_module);
