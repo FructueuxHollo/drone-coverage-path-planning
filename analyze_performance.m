@@ -39,11 +39,13 @@ disp('Calcul des métriques de sécurité...');
 collision_count = 0;
 for i = 1:size(positions, 1)
     pos = positions(i, :); % [North, East, Down]
-    for k = 1:length(obstacles)
-        % On vérifie si la position (East, North) est dans un polygone d'obstacle
-        if inpolygon(pos(2), pos(1), obstacles{k}(:,1), obstacles{k}(:,2))
-            collision_count = collision_count + 1;
-            break; % Inutile de vérifier les autres obstacles pour ce point
+    if length(obstacles)>1
+        for k = 1:length(obstacles)
+            % On vérifie si la position (East, North) est dans un polygone d'obstacle
+            if inpolygon(pos(2), pos(1), obstacles{k}(:,1), obstacles{k}(:,2))
+                collision_count = collision_count + 1;
+                break; % Inutile de vérifier les autres obstacles pour ce point
+            end
         end
     end
 end
@@ -61,8 +63,10 @@ zone_area = polyarea(poly_east_coords, poly_north_coords);
 
 % On fait de même pour les obstacles
 obstacles_area = 0;
-for i = 1:length(obstacles)
-    obstacles_area = obstacles_area + polyarea(obstacles{i}(:,1), obstacles{i}(:,2));
+if length(obstacles)>1
+    for i = 1:length(obstacles)
+        obstacles_area = obstacles_area + polyarea(obstacles{i}(:,1), obstacles{i}(:,2));
+    end
 end
 target_area = zone_area - obstacles_area;
 
@@ -112,9 +116,11 @@ end
 coverage_grid(~in) = 0; % On met à 0 les pixels en dehors de la zone
 
 % On fait de même pour les obstacles
-for i = 1:length(obstacles)
-    [in_obs, ~] = inpolygon(east_grid, north_grid, obstacles{i}(:,1), obstacles{i}(:,2));
-    coverage_grid(in_obs) = 0; % On met à 0 les pixels à l'intérieur des obstacles
+if length(obstacles)>1
+    for i = 1:length(obstacles)
+        [in_obs, ~] = inpolygon(east_grid, north_grid, obstacles{i}(:,1), obstacles{i}(:,2));
+        coverage_grid(in_obs) = 0; % On met à 0 les pixels à l'intérieur des obstacles
+    end
 end
 
 % L'aire couverte est le nombre de pixels allumés multiplié par l'aire de chaque pixel
@@ -172,8 +178,10 @@ title('Visualisation de la Couverture Effective');
 surf(east_grid, north_grid, coverage_grid, 'EdgeColor', 'none');
 % On dessine les polygones par-dessus. plot(X, Y)
 plot(poly_east_coords([1:end,1]), poly_north_coords([1:end,1]), 'k', 'LineWidth', 2);
-for i = 1:length(obstacles)
-    fill(obstacles{i}(:,1), obstacles{i}(:,2), 'r');
+if length(obstacles)>1
+    for i = 1:length(obstacles)
+        fill(obstacles{i}(:,1), obstacles{i}(:,2), 'r');
+    end
 end
 xlabel('East (m)');
 ylabel('North (m)');

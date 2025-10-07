@@ -1,0 +1,33 @@
+Lancement de l'analyse de performance de la mission...
+Données de la mission chargées.
+Calcul des métriques de qualité de la trajectoire...
+Calcul des métriques de sécurité...
+Calcul des métriques d'efficacité...
+Aire totale de la zone de mission : 175000.00 m²
+Aire des obstacles à soustraire : 0.00 m²
+-> Aire cible à couvrir : 175000.00 m²
+Calcul de la couverture en cours (cela peut prendre un moment)...
+Aire totale effectivement couverte (sans obstacles) : 103594.00 m²
+
+
+--- RAPPORT DE PERFORMANCE DE LA MISSION ---
+
+** Qualité de la Trajectoire **
+   - Distance totale parcourue : 12478.02 mètres
+   - Temps total de la mission : 1610.10 secondes
+   - Lissage du vol (Jerk RMS) : 150.6232 m/s³ (plus c'est bas, plus c'est fluide)
+
+** Performance de l'Algorithme **
+   - Temps de calcul du chemin : 0.0278 secondes
+
+** Sécurité et Faisabilité **
+   - Nombre de points en collision : 0
+   - VERDICT SÉCURITÉ : SUCCÈS (Aucune collision)
+
+** Efficacité de la Mission **
+   - Taux de couverture de la zone : 59.20 %
+   - Batterie consommée (estimation) : 120.88 %
+   - AVERTISSEMENT : La mission requiert plus de 100% de la batterie !
+
+--- FIN DU RAPPORT ---
+Visualisation de la couverture générée.

@@ -14,15 +14,27 @@ def main():
     OVERLAP_PERCENTAGE = 0
     
     zone = [
-        (0, 0), (1000, 0), (1000, 750), (500, 750), (500, 400), 
-        (250, 400), (250, 750), (0, 750)
+        (0, 0),
+        (1200, 0),
+        (1200, 900),
+        (0, 900)
     ]
+
+    # Cette zone n'a pas d'obstacles internes dans l'image.
     obstacles = [
-        [(150, 200), (350, 200), (350, 300), (150, 300)],
-        # [(120, 50), (140, 50), (130, 90)]
-        [(600, 250), (700, 250), (650, 300)]
+        # Obstacle I
+        [(200, 500), (450, 500), (450, 700), (200, 700)],
+
+        # Obstacle II
+        [(150, 100), (550, 100), (550, 300), (150, 300)],
+
+        # Obstacle III
+        [(750, 600), (900, 600), (900, 800), (750, 800)],
+
+        # Obstacle IV
+        [(800, 200), (1000, 200), (1000, 350), (800, 350)],
     ]
-    start_coords = (200, 500) # Point de départ en (East, North)
+    start_coords = (50, 70) # Point de départ en (East, North)
 
     # 2. Initialisation du planificateur
     try:

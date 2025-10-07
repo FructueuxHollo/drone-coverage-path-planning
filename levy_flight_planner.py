@@ -159,7 +159,7 @@ def planifier_mission(zone_poly, altitude, fov, obstacles_poly, start_coords=Non
         )
         
         # Vous pouvez ajuster la longueur totale de la mission ici
-        waypoints = planner.plan_coverage_path(total_path_length=10000.0)
+        waypoints = planner.plan_coverage_path(total_path_length=7500.0)
         
         if waypoints:
             mission_data = {
@@ -185,25 +185,38 @@ if __name__ == '__main__':
     
     # Définition de la mission pour le test
     zone = [
-        [50, 50], [450, 50], [450, 350], [300, 350], [300, 150],
-        [200, 150], [200, 350], [50, 350], [50, 50]
+        (0, 0),
+        (1200, 0),
+        (1200, 900),
+        (0, 900)
     ]
-    
+
+    # Cette zone n'a pas d'obstacles internes dans l'image.
     obstacles = [
-        [[100, 100], [150, 100], [150, 150], [100, 150]]
+        # Obstacle I
+        [(200, 500), (450, 500), (450, 700), (200, 700)],
+
+        # Obstacle II
+        [(150, 100), (550, 100), (550, 300), (150, 300)],
+
+        # Obstacle III
+        [(750, 600), (900, 600), (900, 800), (750, 800)],
+
+        # Obstacle IV
+        [(800, 200), (1000, 200), (1000, 350), (800, 350)],
     ]
     
     # Un point de départ bien au centre de la zone libre
-    start_pt = [125.0, 125.0]
+    start_pt = [50.0, 70.0]
     
     # 1. Créer une instance du planificateur
     planner = LevyFlightPlanner(
         zone_poly=zone,
         obstacles_poly=obstacles,
         start_coords=start_pt,
-        altitude=40,
+        altitude=43,
         fov=60,
-        overlap=20
+        overlap=0
     )
     
     # 2. Planifier la trajectoire (ajuster la longueur pour la visualisation)
@@ -245,7 +258,7 @@ if __name__ == '__main__':
         handles, labels = plt.gca().get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         plt.legend(by_label.values(), by_label.keys())
-        
+        plt.savefig(r"D:\Fructueux\Work\Memoire\Drone Coverage Path Planning\Code\results\RW-LF\zone_3.png")
         plt.show()
     else:
         print("\nÉchec de la planification.")

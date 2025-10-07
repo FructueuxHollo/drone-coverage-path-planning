@@ -2,39 +2,44 @@
 clear; clc; close all;
 
 disp('Initialisation de la simulation de mission de drone...');
-
+ENABLE_VISUALIZATION = false; 
 % Assurez-vous que MATLAB utilise le bon interpréteur Python
 % (normalement, on le configure une seule fois, mais c'est bien de le vérifier)
 pyenv; 
 
 %% Étape 1: Définition des paramètres de la mission (comme en Python)
 disp('Définition des paramètres de la mission...');
-FLIGHT_ALTITUDE_M = 40;     % Altitude de vol en mètres(40)
-CAMERA_FOV_DEGREES = 30;    % Angle de vue de la caméra en degrés(60)
+FLIGHT_ALTITUDE_M = 43;     % Altitude de vol en mètres(40)
+CAMERA_FOV_DEGREES = 60;    % Angle de vue de la caméra en degrés(60)
 OVERLAP_PERCENTAGE = 0;   % Pourcentage de chevauchement entre les passes (0-99)
-START_POINT = [250, 100]; % Coordonnées (East, North)
+START_POINT = [50, 70]; % Coordonnées (East, North)
 
-% Définir la zone de surveillance. Utiliser des "cell arrays" pour les polygones.
-%zone_a_surveiller = {[50 50; 450 50; 450 350; 50 350]};
+%zone_1
+zone_a_surveiller = {[0 0; 500 0; 500 100; 400 100; 400 200; 500 200; 500 400; 0 400; 0 300; 100 300; 100 150; 0 150;]};
 
-% Un polygone concave en forme de "U" couché.
-% Les sommets sont listés dans l'ordre pour former le polygone.
-zone_a_surveiller = {[
-    50, 50;   % 1. Départ en bas à gauche
-    450, 50;  % 2. Vers la droite
-    450, 350; % 3. Vers le haut
-    300, 350; % 4. Rentre vers la gauche
-    300, 150; % 5. Descend (crée la concavité)
-    200, 150; % 6. Vers la gauche
-    200, 350; % 7. Remonte
-    50, 350   % 8. Retour au début (haut gauche)
-]};
+%zone_2
+% zone_a_surveiller = {[100 0; 700 0; 1000 500; 800 800; 200 800; 0 400]};
+
+%zone_3
+% zone_a_surveiller = {[
+%     0,0;
+%     1200,0;
+%     1200,900;
+%     0,900
+% ]};
 
 % Définir les obstacles
+obstacles = {
+    []
+};
 % obstacles = {
-%     [150 150; 250 150; 250 250; 150 250]
-% };
-obstacles = {[100 100; 150 100; 150 150; 100 150]};
+%     [200 500; 450 500; 450 700; 200 700]
+%     [150 100; 550 100; 550 300; 150 300]
+%     [750 600; 900 600; 900 800; 750 800]
+%     [800 200; 1000 200; 1000 350; 800 350]
+%     };
+% 
+% obstacles = obstacles(:)';  % convertit en cellule ligne (1xN)
 
 %% Étape 2: Appel du planificateur Python pour obtenir les waypoints
 disp('Appel du script Python pour la planification de la trajectoire...');
@@ -99,7 +104,7 @@ drone = uavPlatform('UAV', scenario, 'ReferenceFrame', 'NED');
 updateMesh(drone, 'quadrotor', {20}, [0.5 0.5 0.5], [0 0 0], [1 0 0 0]); 
 
 % 1. Définir une vitesse de vol pour le drone (en mètres/seconde)
-DRONE_SPEED_MS = 40.0; % 10 m/s = 36 km/h
+DRONE_SPEED_MS = 5.0; % 10 m/s = 36 km/h
 fprintf('Calcul des temps d''arrivée pour une vitesse de %d m/s.\n', DRONE_SPEED_MS);
 
 % 2. Préparer le vecteur pour les temps d'arrivée
@@ -123,39 +128,42 @@ end
 trajectory = waypointTrajectory(waypoints_3d,'TimeOfArrival', time_of_arrival,'SampleRate', scenario.UpdateRate,'AutoPitch', true);
 
 %% Étape 4: Visualisation de la simulation
-disp('Lancement de la simulation...');
+if ENABLE_VISUALIZATION
+    disp('Lancement de la simulation...');
 
-% Créer une vue 3D du scénario et garder le handle de l'axe (ax)
-fig = figure; % Ouvre une nouvelle fenêtre de figure
-ax = show3D(scenario);
-hold on;
+    % Créer une vue 3D du scénario et garder le handle de l'axe (ax)
+    fig = figure; % Ouvre une nouvelle fenêtre de figure
+    ax = show3D(scenario);
+    hold on;
 
-% Dessiner la zone de mission et les obstacles 
-zone_plot = zone_a_surveiller{1};
-plot3(ax, zone_a_surveiller{1}([1:end,1],1), zone_a_surveiller{1}([1:end,1],2), zeros(size(zone_a_surveiller{1},1)+1,1), 'b', 'LineWidth', 2);
-for i = 1:length(obstacles)
-    obs_plot = obstacles{i};
-    fill3(ax, obstacles{i}(:,1), obstacles{i}(:,2), zeros(size(obstacles{i},1),1), 'r');
+    % Dessiner la zone de mission et les obstacles 
+    zone_plot = zone_a_surveiller{1};
+    plot3(ax, zone_a_surveiller{1}([1:end,1],1), zone_a_surveiller{1}([1:end,1],2), zeros(size(zone_a_surveiller{1},1)+1,1), 'b', 'LineWidth', 2);
+    for i = 1:length(obstacles)
+        obs_plot = obstacles{i};
+        fill3(ax, obstacles{i}(:,1), obstacles{i}(:,2), zeros(size(obstacles{i},1),1), 'r');
+    end
+    % On inverse aussi les coordonnées pour la ligne verte pour qu'elle corresponde au drone
+    plot3(ax, waypoints_3d(:,2), waypoints_3d(:,1), -waypoints_3d(:,3), 'g--');
+    title('Simulation de la mission de surveillance');
+    hold off;
+
+    % On configure la caméra une seule fois, avant la boucle de simulation.
+    % view(0, 90) est la commande standard pour une vue de dessus parfaite (azimut=0, élévation=90).
+    view(0, 90);
+    % axis equal empêche la distorsion des formes (un carré ressemblera à un carré).
+    axis equal;
+
+    % 1. Définir le nom du fichier de sortie
+    outputVideoFilename = 'mission_simulation.mp4';
+    % 2. Créer un objet VideoWriter avec le profil MPEG-4
+    videoWriter = VideoWriter(outputVideoFilename, 'MPEG-4');
+    % 3. Ouvrir le fichier pour l'écriture
+    open(videoWriter);
+    fprintf('Enregistrement de la simulation dans %s\n', outputVideoFilename);
+else 
+    disp('Lancement de la simulation en mode RAPIDE (sans visualisation)...');
 end
-% On inverse aussi les coordonnées pour la ligne verte pour qu'elle corresponde au drone
-plot3(ax, waypoints_3d(:,2), waypoints_3d(:,1), -waypoints_3d(:,3), 'g--');
-title('Simulation de la mission de surveillance');
-hold off;
-
-% On configure la caméra une seule fois, avant la boucle de simulation.
-% view(0, 90) est la commande standard pour une vue de dessus parfaite (azimut=0, élévation=90).
-view(0, 90);
-% axis equal empêche la distorsion des formes (un carré ressemblera à un carré).
-axis equal;
-
-% 1. Définir le nom du fichier de sortie
-outputVideoFilename = 'mission_simulation.mp4';
-% 2. Créer un objet VideoWriter avec le profil MPEG-4
-videoWriter = VideoWriter(outputVideoFilename, 'MPEG-4');
-% 3. Ouvrir le fichier pour l'écriture
-open(videoWriter);
-fprintf('Enregistrement de la simulation dans %s\n', outputVideoFilename);
-
 % 1. Calculer le nombre total d'itérations que la boucle va faire
 total_simulation_time = time_of_arrival(end);
 num_simulation_steps = ceil(total_simulation_time * scenario.UpdateRate);
@@ -189,30 +197,32 @@ while ~isDone(trajectory)
     advance(scenario);
     
     % Mettre à jour la visualisation 3D
-    show3D(scenario, "FastUpdate", true, "Parent", ax);
-    
-    % CONTRÔLER LA CAMÉRA DE LA FENÊTRE 3D
-    % La caméra regardera toujours le drone
-    %camtarget(ax, pos);
-    % La caméra sera positionnée légèrement derrière et au-dessus du drone
-    % pour une vue "poursuite"
-    %camera_offset = [-15, 0, -5]; % Décalage en (x, y, z) par rapport au drone
-    %campos(ax, pos + camera_offset);
-    
-    % On calcule les 4 coins du carré de couverture au sol (z=0)
-    half_res = camera_resolution / 4;
-    % pos(1)=North, pos(2)=East
-    patch_y = [pos(1)-half_res, pos(1)-half_res, pos(1)+half_res, pos(1)+half_res];
-    patch_x = [pos(2)-half_res, pos(2)+half_res, pos(2)+half_res, pos(2)-half_res];
-    % On dessine le patch avec une couleur verte semi-transparente
-    patch(patch_x, patch_y, 'g', 'FaceAlpha', 0.05, 'EdgeColor', 'none');
-    
-    drawnow limitrate;
-    
-    % On capture l'intégralité de la fenêtre de la figure 'fig'
-    frame = getframe(fig);
-    % On écrit cette image dans le fichier vidéo
-    writeVideo(videoWriter, frame);
+    if ENABLE_VISUALIZATION
+        show3D(scenario, "FastUpdate", true, "Parent", ax);
+
+        % CONTRÔLER LA CAMÉRA DE LA FENÊTRE 3D
+        % La caméra regardera toujours le drone
+        %camtarget(ax, pos);
+        % La caméra sera positionnée légèrement derrière et au-dessus du drone
+        % pour une vue "poursuite"
+        %camera_offset = [-15, 0, -5]; % Décalage en (x, y, z) par rapport au drone
+        %campos(ax, pos + camera_offset);
+
+        % On calcule les 4 coins du carré de couverture au sol (z=0)
+        half_res = camera_resolution / 4;
+        % pos(1)=North, pos(2)=East
+        patch_y = [pos(1)-half_res, pos(1)-half_res, pos(1)+half_res, pos(1)+half_res];
+        patch_x = [pos(2)-half_res, pos(2)+half_res, pos(2)+half_res, pos(2)-half_res];
+        % On dessine le patch avec une couleur verte semi-transparente
+        patch(patch_x, patch_y, 'g', 'FaceAlpha', 0.05, 'EdgeColor', 'none');
+
+        drawnow limitrate;
+
+        % On capture l'intégralité de la fenêtre de la figure 'fig'
+        frame = getframe(fig);
+        % On écrit cette image dans le fichier vidéo
+        writeVideo(videoWriter, frame);
+    end
 
     if mod(i, 10) == 0 
         % Obtenir le temps actuel de la simulation
@@ -238,8 +248,10 @@ end
 drone_motion_history = drone_motion_history(1:i, :);
 
 % On ferme le fichier vidéo. C'est une étape cruciale.
-close(videoWriter);
-fprintf('Vidéo enregistrée avec succès.\n');
+if ENABLE_VISUALIZATION
+    close(videoWriter);
+    fprintf('Vidéo enregistrée avec succès.\n');
+end 
 
 disp('Sauvegarde des données de la mission pour l''analyse...');
 save('mission_data.mat', 'drone_motion_history', 'zone_a_surveiller', 'camera_resolution', 'obstacles', 'computation_time', 'time_of_arrival');

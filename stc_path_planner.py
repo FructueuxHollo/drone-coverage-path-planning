@@ -134,10 +134,18 @@ class DronePathPlanner:
         poly_grid_coords = ((self.polygon_vertices - self.origin_offset) / self.resolution).astype(np.int32)
 
         obs_grid_coords_list = []
-        for obs_poly in self.obstacle_polygons:
-            np_obs_poly = np.array(obs_poly, dtype=np.int32)
-            obs_coords = ((np_obs_poly - self.origin_offset) / self.resolution).astype(np.int32)
-            obs_grid_coords_list.append(obs_coords)
+        if self.obstacle_polygons:
+            for obs_poly in self.obstacle_polygons:
+                if not obs_poly:
+                    continue
+                try:
+                    np_obs_poly = np.array(obs_poly, dtype=np.int32)
+                    if np_obs_poly.size == 0:
+                        continue
+                    obs_coords = ((np_obs_poly - self.origin_offset) / self.resolution).astype(np.int32)
+                    obs_grid_coords_list.append(obs_coords)
+                except ValueError:
+                    print(f"Avertissement : Impossilble de traiter un polygone d'obstacle malformé : {obs_poly}")
 
         for r in range(rows):
             for c in range(cols):
@@ -332,53 +340,3 @@ def planifier_mission(zone_poly, altitude, fov, obstacles_poly, start_coords=Non
     else:
         print("-> Échec de la planification.")
         return []
-
-    
-    print("--- Lancement du planificateur en mode standalone (visualisation) ---")
-    
-    # Définition de la mission pour le test
-    FLIGHT_ALTITUDE_M = 10
-    CAMERA_FOV_DEGREES = 90
-    OVERLAP_PERCENTAGE = 20
-    
-    # Un polygone de test complexe
-    # zone = [
-    #     (0, 0), (200, 0), (200, 150), (100, 150), (100, 80), (120, 80), (120, 100), (80, 100), (80, 150), (0, 150)
-    # ]
-    zone = [
-    (0, 0),  
-    (450, 0),  
-    (450, 350), 
-    (300, 350), 
-    (300, 150), 
-    (200, 150), 
-    (200, 350), 
-    (0, 350)   
-]
-    # obstacles = [
-    #     [(30, 40), (80, 40), (80, 60), (30, 60)],
-    #     [(130, 50), (140, 90), (120, 90)]
-    # ]
-    obstacles = [(100, 100), (150, 100), (150, 150), (100, 150)]
-    # obstacles = []
-
-
-    
-    # 1. Créer une instance du planificateur
-    planner = DronePathPlanner(
-        polygon_vertices=zone,
-        altitude_m=FLIGHT_ALTITUDE_M,
-        camera_fov_degrees=CAMERA_FOV_DEGREES,
-        obstacle_polygons=obstacles,
-        overlap_percentage=OVERLAP_PERCENTAGE
-    )
-    
-    # 2. Planifier la trajectoire (ce qui va calculer et stocker l'arbre)
-    waypoints_data = planner.plan_coverage_path()
-    
-    # 3. Si la planification a réussi, générer la visualisation
-    if waypoints_data:
-        print("\nPlanification réussie.")
-        planner.visualize_mst_step()
-    else:
-        print("\nÉchec de la planification.")

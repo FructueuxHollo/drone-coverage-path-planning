@@ -31,6 +31,7 @@ class MissionVisualizer:
 
         plt.legend()
         plt.grid(True, linestyle=':', alpha=0.6)
+        plt.savefig(r"D:\Fructueux\Work\Memoire\Drone Coverage Path Planning\Code\results\stc\zone_3_step_1.png")
         plt.show(block=False)
         plt.pause(0.1)
 
@@ -48,6 +49,7 @@ class MissionVisualizer:
             self.ax.axvline(x, color='green', linestyle='-', linewidth=0.5, alpha=0.4)
             
         self.ax.set_title("Étape 2: Grille Discrétisée", fontsize=16)
+        plt.savefig(r"D:\Fructueux\Work\Memoire\Drone Coverage Path Planning\Code\results\stc\zone_3_step_2.png")
         plt.show(block=False)
         plt.pause(0.1)
 
@@ -73,6 +75,7 @@ class MissionVisualizer:
                 self.ax.plot([start_x, end_x], [start_y, end_y], color='purple', linestyle='-', linewidth=2.5)
 
         self.ax.set_title("Étape 3: Arbre Recouvrant Minimum", fontsize=16)
+        plt.savefig(r"D:\Fructueux\Work\Memoire\Drone Coverage Path Planning\Code\results\stc\zone_3_step_3.png")
         plt.show(block=False)
         plt.pause(0.1)
 
@@ -119,6 +122,7 @@ class MissionVisualizer:
 
         self.ax.set_title("Étape 4: Trajectoire Finale de Couverture", fontsize=16)
         plt.legend()
+        plt.savefig(r"D:\Fructueux\Work\Memoire\Drone Coverage Path Planning\Code\results\stc\zone_3_step_4.png")
         plt.show(block=False)
         plt.pause(0.1)
         

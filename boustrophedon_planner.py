@@ -278,12 +278,31 @@ if __name__ == '__main__':
     print("--- Lancement en mode standalone avec visualisation détaillée ---")
     
     # Paramètres de la mission
-    zone = [[50, 50], [450, 50], [450, 350], [300, 350], [300, 150], [200, 150], [200, 350], [50, 350], [50, 50]]
-    obstacles = [[[100, 100], [150, 100], [150, 150], [100, 150]]]
-    start_pt = [100.0, 100.0]
+    zone = [
+        (0, 0),
+        (1200, 0),
+        (1200, 900),
+        (0, 900)
+    ]
+
+    # Cette zone n'a pas d'obstacles internes dans l'image.
+    obstacles = [
+        # Obstacle I
+        [(200, 500), (450, 500), (450, 700), (200, 700)],
+
+        # Obstacle II
+        [(150, 100), (550, 100), (550, 300), (150, 300)],
+
+        # Obstacle III
+        [(750, 600), (900, 600), (900, 800), (750, 800)],
+
+        # Obstacle IV
+        [(800, 200), (1000, 200), (1000, 350), (800, 350)],
+    ]
+    start_pt = [50.0, 70.0]
     
     # 1. Instancier et exécuter le planificateur
-    planner = CellularBoustrophedonPlanner(zone, 40, 30, obstacles, start_pt, 20)
+    planner = CellularBoustrophedonPlanner(zone, 43, 60, obstacles, start_pt, 0)
     final_waypoints = planner.plan_coverage_path()
 
     # 2. Visualisation
@@ -337,4 +356,5 @@ if __name__ == '__main__':
         ax2.legend()
 
         plt.tight_layout(rect=[0, 0, 1, 0.96])
+        plt.savefig(r"D:\Fructueux\Work\Memoire\Drone Coverage Path Planning\Code\results\boustrophedon\zone_3.png")
         plt.show()
